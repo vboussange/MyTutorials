@@ -1,6 +1,6 @@
 
 ---
-title: Visualising and comparing approximate Bayesian computation and Bayesian inference
+title: A practical introduction to Approximate Bayesian Computation
 weave_options:
 header-includes:
 - \newcommand{\M}{\mathcal{M}}
@@ -183,7 +183,7 @@ We now define an `Axes3D`, as you would do it in Python:
 ```julia
 # Plotting 3d landscape
 fig = plt.figure()
-ax = Axes3D(fig, computed_zorder=false)
+ax = Axes3D(fig, computed_zorder=false);
 ```
 
 We'll import numpy into Julia, to easily construct the meshgrid required by the matplotlib function `plot_surface`.
