@@ -2,8 +2,8 @@
 ---
 title: Visualising and comparing approximate Bayesian computation and Bayesian inference
 weave_options:
-  doctype: github
-  eval: false
+header-includes:
+- \newcommand{\M}{\mathcal{M}}
 ---
 ## Introduction
 In this tutorial, we'll try to learn the basics of approximate Bayesian computation (ABC). <!-- and Bayesian inference, and compare the two approaches. -->
@@ -12,6 +12,7 @@ In this tutorial, we'll try to learn the basics of approximate Bayesian computat
 We first need to load a few packages.
 ```julia
 cd(@__DIR__)
+using Pkg; Pkg.activate(".")
 import Optimisers:destructure # required to simplify parameter indexing
 using ApproxBayes
 using Distributions # to define the priors
@@ -32,11 +33,11 @@ Random.seed!(11);
 ```
 
 ## Model definition and data generation
-Let's consider a predator-prey ecological model, known as [Lotka-Volterra equations](https://en.wikipedia.org/wiki/Lotka–Volterra_equations). This model has a total of four different parameters $\alpha, \beta, \gamma, \delta$, that describe the interactions between the two species. For the sake of simplicity, we'll assume that we know perfectly the parameters $\gamma, \delta$, and seek to infer $\alpha$ and $\beta$. Assuming to know `\gamma, \delta` is of course a very unrealistic assumption...
+Let's consider a predator-prey ecological model, known as [Lotka-Volterra equations](https://en.wikipedia.org/wiki/Lotka–Volterra_equations). This model has a total of four different parameters $\alpha, \beta, \gamma, \delta$, that describe the interactions between the two species. For the sake of simplicity, we'll assume that we know perfectly the parameters $\gamma, \delta$, and seek to infer $\alpha$ and $\beta$. Assuming to know $\gamma, \delta$ is of course a very unrealistic assumption...
 
 In the following, we use ParametricModels.jl to define our ODE problem. ParametricModels.jl is a simple wrapper around DifferentialEquations.jl, but makes it easier for multiple model simulation. For readability and maintenance, we'll encapsulate the parameters in a NamedTuple
 
-```julia; echo=false
+```julia
 # Declaration of the model
 ParametricModels.@model LotkaVolterra
 # Definition of the model
@@ -61,7 +62,7 @@ p = (α=[1.5], β=[1.0])
 tspan = (0.0, 10.0)
 
 model = LotkaVolterra(ModelParams(;u0, p, tspan, alg=Tsit5(), saveat=0.1))
-sol = simulate(model)
+sol = simulate(model);
 ```
 And here we go, we have our model defined! ParametricModels.jl make the work easy, but as an exercise, you can try to write the same model with OrdinaryDiffEq.jl.
 
@@ -81,7 +82,7 @@ PyPlot.plot(sol')
 display(fig)
 ```
 
-We now use `j sol` to generate synthetic data containing some noise (in mathematical terms, we call this a Gaussian white noise, which follows $\mathcal{N}(0,\sigma)$ where $\sigma = 0.8$. We'll pretend that this synthetic data is our empirical data.
+We now use `sol` to generate synthetic data containing some noise (in mathematical terms, we call this a Gaussian white noise, which follows $\mathcal{N}(0,\sigma)$ where $\sigma = 0.8$. We'll pretend that this synthetic data is our empirical data.
 ```julia
 σ = 0.8
 odedata = Array(sol) + σ * randn(size(Array(sol)))
@@ -94,26 +95,46 @@ The model and the synthetic data are ready, let's get started with ABC!
 
 ## Approximate Bayesian computation
 
-For ABC, one needs to define a distance metrics $\rho$ between the model output and 
+For ABC, one needs to define a distance $\rho$ that measures the distance between the model output $\hat\mu$ (in the picture below, $\mu_i$) and the empirical data $\mu$.
 
-[! source: Wikipedia](https://upload.wikimedia.org/wikipedia/commons/b/b9/Approximate_Bayesian_computation_conceptual_overview.svg)
+![source: Wikipedia](https://upload.wikimedia.org/wikipedia/commons/b/b9/Approximate_Bayesian_computation_conceptual_overview.svg)
+
+In our case, the empirical data available (`odedata`) allows us to explicitly define the likelihood of the model given the data. For additive Gaussian noise, the likelihood of the model is given by
+$$
+\begin{split}
+    p(\by_{1:K} | \theta, \M) &= \prod_{i=1}^K p(y_{i} | \theta, \M)\\
+                        &= \prod_{k=1}^K \frac{1}{\sqrt{(2\pi)^d|\Sigma_y|}} \exp \left(-\frac{1}{2} \epsilon_k^{T} \Sigma_y^{-1} \epsilon_k \right)
+\end{split}
+$$
+where $\epsilon_k \equiv \epsilon(t_k) = y(t_k) - h\left(\M(t_k, \theta)\right)$ and $\Sigma_y = \sigma^2 I$ in our case.
+
+As a distance, we'll simply use the negative log of the likelihood!
+
+So let's translate all this in Julia code. 
+
+`ApproxBayes` requires as input a function `simfunc(params, constants, data)`. It should return the distance value, as well as a second value that may be used for logging. To make things simple, we'll return `nothing` for this second value. 
+
+Because `ApproxBayes` requires that `params` is an array (`params <: AbstractArray`), we further use a special trick relying on the function `Optimiser.destructure`. This utility function allows to generate a function `re` that can recover a `NamedTuple` from a vector. Very useful in combination with the utility macro `@unpack`!
 
 ```julia
 _, re = destructure(p)
-function loss_function(p; odedata=odedata)
+function log_likelihood(p; odedata=odedata)
     p_tuple = re(p)
     pred = simulate(model, p=p_tuple)
-    return sum([loglikelihood(MvNormal(zeros(2), LinearAlgebra.I * 0.8^2), odedata[:,i] - pred[:,i]) for i in 1:size(odedata,2)])
+    return sum([loglikelihood(MvNormal(zeros(2), LinearAlgebra.I * σ^2), odedata[:,i] - pred[:,i]) for i in 1:size(odedata,2)])
 end
 function simfunc(params, constants, data)
-    ρ = - loss_function(params, odedata=data)
+    ρ = - log_likelihood(params, odedata=data)
     return ρ, nothing
 end
 
 # testing function
 simfunc([1.0, 1.2], nothing, odedata)
+```
 
-priors = [truncated(Normal(1.1, 1.), 0.5, 2.5),
+Now that the distance function is implemented, we define the priors on the parameters $\alpha, \beta$
+```julia
+priors = [truncated(Normal(1.1, 1.), 0.5, 2.5), # for α and β
             truncated(Normal(1.1, 1.), 0., 2.)]
 num_samples = 500
 max_iterations = 1e5
@@ -128,29 +149,35 @@ abcsetup = ABCRejection(simfunc,
 abcresult = runabc(abcsetup, odedata, progress=true, parallel=true)
 ```
 
-## Visualizing the inference process
+And here we go: `abcresult` informs us that the ABC inference could indeed recover the parameters that generated the data!
 
-Now let's calculate the real likelihoood landscape.
+## Visualizing the inference process
+To better understand what has happened, let's plot the parameters that have not been accepted by the sampler, together with the real likelihood landscape.
+
+As a first step, let's calculate the real likelihoood landscape.
 ```julia
 
 αs = range(1.45, 1.55, length=100)
-βs = range(0.9, 1.5, length=100)
+βs = range(0.8, 1.3, length=100)
 likelihoods = Float64[]
 for α in αs
     for β in βs
         p = [α, β]
-        push!(likelihoods, loss_function(p))
+        push!(likelihoods, log_likelihood(p))
     end
 end
 
-likelihoods = exp.(likelihoods) # exponentiating, to make it visually nicer
+likelihoods = exp.(likelihoods); # exponentiating, to make it visually nicer
 ```
+
+We now define an `Axes3D`, as you would do it in Python:
 ```julia
 # Plotting 3d landscape
 fig = plt.figure()
 ax = Axes3D(fig, computed_zorder=false)
 ```
 
+We'll import numpy into Julia, to easily construct the meshgrid required by the matplotlib function `plot_surface`.
 ```julia
 np = pyimport("numpy") # used for plotting
 X, Y = np.meshgrid(αs, βs)
@@ -182,15 +209,13 @@ ax.zaxis._axinfo["grid"]["color"] = (1, 1, 1, 0)
 fig.tight_layout()
 fig.set_facecolor("None")
 ax.set_facecolor("None")
-display(fig)
 
 for p in eachrow(abcresult.parameters)
-    ax.scatter(p[1], p[2], exp.(loss_function(p)), c="tab:red", zorder=100, s = 0.5)
+    ax.scatter(p[1], p[2], exp.(log_likelihood(p)), c="tab:red", zorder=100, s = 0.5)
 end
 p = abcresult.parameters[1,:]
-ax.scatter(p[1], p[2], exp(loss_function(p)), c="tab:red", zorder=100, s = 2., label="Accepted simulation")
+ax.scatter(p[1], p[2], exp(log_likelihood(p)), c="tab:red", zorder=100, s = 2., label="Accepted simulation")
 ax.legend()
 display(fig)
-
-fig.savefig("2d_landscape_ABC.pdf", dpi = 100)
 ```
+Cool, right?
