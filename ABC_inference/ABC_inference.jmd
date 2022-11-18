@@ -4,6 +4,15 @@ title: Visualising and comparing approximate Bayesian computation and Bayesian i
 weave_options:
 header-includes:
 - \newcommand{\M}{\mathcal{M}}
+subtitle: ""
+summary: ""
+authors: []
+tags: []
+categories: []
+date: `j import Dates; Dates.Date(Dates.now())`
+lastmod: `j import Dates; Dates.Date(Dates.now())`
+featured: false
+draft: false
 ---
 ## Introduction
 In this tutorial, we'll try to learn the basics of approximate Bayesian computation (ABC). <!-- and Bayesian inference, and compare the two approaches. -->
