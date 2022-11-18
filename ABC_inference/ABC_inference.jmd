@@ -1,11 +1,11 @@
 
 ---
 title: A practical introduction to Approximate Bayesian Computation
+summary: In this tutorial, you'll learn the basics of approximate Bayesian computation (ABC). ABC is an inference method with very little requirements in terms of the model structure - yet it can be very powerful. It is very simple to apply to any model, and to understand. We'll play around with Julia, and we will visualize graphically the inference results, so that you can build an intuition of the inference method.
 weave_options:
 header-includes:
 - \newcommand{\M}{\mathcal{M}}
 subtitle: ""
-summary: ""
 authors: []
 tags: []
 categories: []
@@ -15,7 +15,9 @@ featured: false
 draft: false
 ---
 ## Introduction
-In this tutorial, we'll try to learn the basics of approximate Bayesian computation (ABC). <!-- and Bayesian inference, and compare the two approaches. -->
+In this tutorial, you'll learn the basics of approximate Bayesian computation (ABC). <!-- and Bayesian inference, and compare the two approaches. -->
+ABC is an inference method with very little requirements in terms of the model structure - yet it can be very powerful. It is very simple to apply to any model, and to understand. 
+We'll play around with Julia, and we will visualize graphically the inference results, so that you can build an intuition of the inference method.
 
 ## Package loading
 We first need to load a few packages.
