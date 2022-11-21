@@ -1,0 +1,154 @@
+#=
+ Script for visualising Bayesian inference
+
+=#
+
+```julia
+cd(@__DIR__)
+using Turing
+using OrdinaryDiffEq
+
+# Load StatsPlots for visualizations and diagnostics.
+# using StatsPlots
+using PyPlot
+using StatsPlots # to plot the chain
+using PyCall # to plot 3d landscape
+np = pyimport("numpy")
+
+using LinearAlgebra
+
+# Set a seed for reproducibility.
+using Random
+
+Random.seed!(1);
+
+using UnPack
+using ParametricModels
+ParametricModels.@model LotkaVolterra
+function (lv::LotkaVolterra)(du, u, p, t)
+    # Model parameters
+    @unpack α, β, = p
+    # Current state
+    x, y = u
+    # fixed parameters
+    γ = 3.0
+    δ = 1.0
+
+    # Evaluate differential equations
+    du[1] = (α[] - β[] * y) * x # prey
+    du[2] = (δ * x - γ) * y # predator
+
+    return nothing
+end
+# Define initial-value problem.
+u0 = [1.0, 1.0]
+p = (α = [1.5], β = [1.0])
+tspan = (0.0, 10.0)
+
+model = LotkaVolterra(ModelParams(;u0, p, tspan, alg=Tsit5(), saveat = 0.1))
+sol = simulate(model)
+
+fig = PyPlot.figure()
+PyPlot.plot(sol')
+display(fig)
+σ = 0.8
+odedata = Array(sol) + σ * randn(size(Array(sol)))
+fig = figure()
+PyPlot.plot(odedata')
+display(fig)
+
+Turing.@model function fitlv(data, model)
+    # Prior distributions.
+    α ~ truncated(Normal(1.1, 1.); lower=0.5, upper=2.5)
+    β ~ truncated(Normal(1.1, 1.); lower=0, upper=2)
+
+    # Simulate Lotka-Volterra model. 
+    p = (α = α, β = β)
+    predicted = simulate(model, p=p)
+
+    # Observations.
+    for i in 1:length(predicted)
+        data[:, i] ~ MvNormal(predicted[i], σ^2 * I)
+    end
+
+    return nothing
+end
+
+bayes_model = fitlv(odedata, model)
+
+# Sample 3 independent chains with forward-mode automatic differentiation (the default).
+chain = sample(bayes_model, NUTS(0.65), 1000; progress=true)
+StatsPlots.plot(chain) # check that the chains have converged
+
+
+# computing the loss function 
+function loss_function(p)
+    pred = simulate(model, p=p)
+    # return prod([pdf(MvNormal(zeros(2), LinearAlgebra.I * 0.8^2), odedata[:,i] - pred[:,i]) for i in 1:size(odedata,2)])
+    return sum([loglikelihood(MvNormal(zeros(2), LinearAlgebra.I * 0.8^2), odedata[:,i] - pred[:,i]) for i in 1:size(odedata,2)])
+end
+# loss_function(odedata,sol)
+αs = range(1.45, 1.55, length=100)
+βs = range(0.9, 1.5, length=100)
+likelihoods = Float64[]
+for α in αs
+    for β in βs
+        p = (α = α, β = β)
+        push!(likelihoods, loss_function(p))
+    end
+end
+
+likelihoods = exp.(likelihoods) # exponentiating, to make it visually nicer
+
+
+# Plotting 3d landscape
+fig = plt.figure()
+ax = Axes3D(fig, computed_zorder=false)
+
+X, Y = np.meshgrid(αs,βs)
+
+
+# fig.savefig("perturbed_p.png", dpi = 300, bbox_inches="tight")
+ax.plot_surface(X .|> Float64,
+                Y .|> Float64,
+                reshape(likelihoods, (length(αs),length(βs))) .|> Float64, 
+                edgecolor="0.7", 
+                linewidth=0.2,
+                cmap="Blues",zorder=-1)
+ax.set_xlabel(L"p_1")
+ax.set_ylabel(L"p_2")
+ax.set_zlabel("Likelihood", x=2)
+ax.set_xticks([])
+ax.set_yticks([])
+ax.set_zticks([])
+
+# make the panes transparent
+ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+# make the grid lines transparent
+ax.xaxis._axinfo["grid"]["color"] =  (1.,1.,1.,0.)
+ax.yaxis._axinfo["grid"]["color"] =  (1,1,1,0)
+ax.zaxis._axinfo["grid"]["color"] =  (1,1,1,0)
+
+
+fig.tight_layout()
+fig.set_facecolor("None")
+ax.set_facecolor("None")
+display(fig)
+
+posterior_samples = sample(chain[[:α, :β]], 200; replace=true) |> Array
+for p in eachrow(posterior_samples)
+    ax.scatter(p[1], p[2], exp.(loss_function((α = p[1], β = p[2]))), c="tab:red", zorder=100, s = 0.5)
+end
+p = posterior_samples[:,1]
+ax.scatter(p[1], p[2], exp(loss_function((α = p[1], β = p[2]))), c="tab:red", zorder=100, s = 2., label="Posterior sample")
+ax.legend()
+display(fig)
+
+fig.savefig("2d_landscape_bayesian_inference.pdf", dpi = 100)
+```
+
+## Some references
+- [A conceptual introduction to Hamiltonian Monte Carlo](https://arxiv.org/pdf/1701.02434.pdf)
+- 

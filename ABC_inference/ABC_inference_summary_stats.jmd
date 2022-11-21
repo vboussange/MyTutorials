@@ -1,4 +1,4 @@
-
+<!-- This tutorial is an extended version of the file `ABC_inference.jmd`, with additional section where we try different summary statistics -->
 ---
 title: A practical introduction to Approximate Bayesian Computation
 summary: In this tutorial, you'll learn the basics of approximate Bayesian computation (ABC). ABC is an inference method with very little requirements in terms of the model structure - yet it can be very powerful. It is very simple to apply to any model, and to understand. We'll play around with Julia, and we will visualize graphically the inference results, so that you can build an intuition of the inference method.
@@ -231,5 +231,121 @@ display(fig)
 ```
 Cool, right?
 
+## Summary statistics
+In general, in ABC, it is advised to use summary statistics instead of the full likelihood, to define a distance. This is because the probability of accepting the model output typically decreases as the dimensionality of the data increases (in our case, the dimensionality correponds to the number of time steps multiplied by the number of state variables.
+Summary statistics are values calculated from the data to represent the maximum amount of information in the simplest possible form.
+
+### Note: to improve performance, you could increase the time series length
+### Mean and variance
+As summary statistics, we can here compute the mean and covariance matrix of the state variables, and use those to define the distance between the model output and the data.
+```julia
+compute_summary_stats(data) = [mean(data,dims=2); cov(data, dims=2)[:]]
+ss_data = compute_summary_stats(odedata)
+```
+
+Let's now proceed similarly to above
+```julia
+function simfunc(params, constants, ss_data)
+    p_tuple = re(params)
+    pred = simulate(model, p=p_tuple)
+    ss_pred = compute_summary_stats(pred)
+    ρ = sum((ss_pred .- ss_data).^2) # taking euclidean distance between
+    return ρ, nothing
+end
+
+simfunc([1.0, 1.2], nothing, ss_data)
+
+priors = [truncated(Normal(1.1, 1.), 0.5, 2.5), # for α and β
+            truncated(Normal(1.1, 1.), 0., 2.)]
+num_samples = 500
+max_iterations = 1e5
+ϵ = 0.15
+abcsetup = ABCRejection(simfunc,
+                        length(priors),
+                        ϵ,
+                        ApproxBayes.Prior(priors);
+                        nparticles=num_samples,
+                        maxiterations=max_iterations)
+
+abcresult = runabc(abcsetup, ss_data, progress=true, parallel=true)
+```
+As you can see, the results are quite mediocre. With those statistics, we miss the autocorrelation properties of the time series.
+
+### Summary statistics with FFT
+```julia
+using FFTW
+# Fourier Transform of the data
+F = fft(odedata .- mean(odedata,dims=2)) |> fftshift
+# freqs = fftfreq(size(odedata, 2), 1.0/Ts) |> fftshift
+fig = figure()
+plot(1:size(odedata,2), abs.(F)')
+display(fig)
+```
+Let's select the frequency which frequency is predominent, and consider it for our summary statistics
+
+```julia
+freq_x = sortperm(abs.(F[1,:]))[end-1:end] # selecting the two most important frequencies
+freq_y = sortperm(abs.(F[1,:]))[end-1:end] # selecting the two most important frequencies
+@assert freq_x == freq_y # both prey and predator data peak at the same frequencies
+
+function compute_summary_stats(data)
+    F = fft(Array(data)) |> fftshift
+    return abs.(F[:,freq_x])
+end
+ss_data = compute_summary_stats(Array(odedata))
+simfunc([1.0, 1.2], nothing, ss_data)
+```
+
+Let's now proceed similarly to above
+```julia
+priors = [truncated(Normal(1.1, 1.), 0.5, 2.5), # for α and β
+            truncated(Normal(1.1, 1.), 0., 2.)]
+num_samples = 500
+max_iterations = 1e5
+ϵ = 0.15
+abcsetup = ABCRejection(simfunc,
+                        length(priors),
+                        ϵ,
+                        ApproxBayes.Prior(priors);
+                        nparticles=num_samples,
+                        maxiterations=max_iterations)
+
+abcresult = runabc(abcsetup, ss_data, progress=true, parallel=true)
+```
+Although we have quite a large uncertainty on the parameters, the Fourier transform contains much more information on the time series, and this is reflected on the more accurate value of the inferred parameters.
+
+### Summary statistics with auto-correlation
+Here we use the autocorrelation function to build our summary statistics. The default lag value in Julia reduces the dimension of the data to a matrix of size `21x2`. 
+```julia
+using StatsBase
+autocor_ss = autocor(odedata') 
+fig = figure()
+plot(1:size(autocor_ss,1), autocor_ss)
+display(fig)
+```
+Both predator and prey abundance show a decreasing positive correlation for a lag up to 20.
+
+```julia
+compute_summary_stats(data) = autocor(data')
+ss_data = compute_summary_stats(odedata)
+simfunc([1.0, 1.2], nothing, ss_data)
+```
+
+Let's now proceed similarly to above
+```julia
+priors = [truncated(Normal(1.1, 1.), 0.5, 2.5), # for α and β
+            truncated(Normal(1.1, 1.), 0., 2.)]
+num_samples = 500
+max_iterations = 1e5
+ϵ = 0.15
+abcsetup = ABCRejection(simfunc,
+                        length(priors),
+                        ϵ,
+                        ApproxBayes.Prior(priors);
+                        nparticles=num_samples,
+                        maxiterations=max_iterations)
+
+abcresult = runabc(abcsetup, ss_data, progress=true, parallel=true)
+```
 ## Further references
 - [A comparison of approximate versus exact techniques for Bayesian inference in nonlinear ordinary differential equations, Alahmadi et al. 2020.](https://royalsocietypublishing.org/doi/epdf/10.1098/rsos.191315)
