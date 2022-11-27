@@ -2,15 +2,15 @@
 title: A practical introduction to approximate Bayesian computation
 summary: In this tutorial, you'll learn the basics of approximate Bayesian computation (ABC). ABC is an inference method with very little requirements in terms of the model structure - yet it can be very powerful. It is very simple to apply to any model, and to understand. We'll play around with Julia, and we will visualize graphically the inference results, so that you can build an intuition of the inference method.
 weave_options:
-#    eval: false
+    eval: false
 header-includes:
 - \newcommand{\M}{\mathcal{M}}
 subtitle: ""
 authors: []
 tags: []
 categories: []
-date: `j import Dates; Dates.Date(Dates.now())`
-lastmod: `j import Dates; Dates.Date(Dates.now())`
+#date: `j import Dates; Dates.Date(Dates.now())`
+#lastmod: `j import Dates; Dates.Date(Dates.now())`
 featured: false
 draft: false
 ---
@@ -44,9 +44,12 @@ Random.seed!(11);
 ```
 
 ## Model definition and data generation
-Let's consider a predator-prey ecological model, the [Lotka-Volterra equations](https://en.wikipedia.org/wiki/Lotka–Volterra_equations). This model has a total of four different parameters $\alpha, \beta, \gamma, \delta$, that describe the interactions between the two species. For the sake of simplicity, we'll assume that we know perfectly the parameters $\gamma, \delta$, and seek to infer $\alpha$ and $\beta$. Assuming to know $\gamma, \delta$ is of course a very unrealistic assumption...
 
-In the following, we use [**ParametricModels.jl**](https://github.com/vboussange/ParametricModels.jl) to define our ODE problem. **ParametricModels.jl** is a simple wrapper around **OrdinaryDiffEq.jl**, that allows to play around with the model without bothering further about the details of the numerical solve, etc... This makes it easier for multiple model simulation. For readability and maintenance, we'll encapsulate the parameters in a `NamedTuple`
+What we'll do is to implement an Ordinary Differential Equation model, which will be used to generate synthetic data and further perform the inference. The idea here is to consider this synthetic data as our empirical data, and pretend that we do not know which parameters generated this data. Our goal is then to recover the generating parameters.
+
+We'll consider a predator-prey ecological model, the [Lotka-Volterra equations](https://en.wikipedia.org/wiki/Lotka–Volterra_equations). This model has a total of four different parameters $\alpha, \beta, \gamma, \delta$, that describe the interactions between the two species. For the sake of simplicity, we'll assume that we know perfectly the parameters $\gamma, \delta$, and seek to infer $\alpha$ and $\beta$. Assuming to know $\gamma, \delta$ is of course a very unrealistic assumption... but a handy assumption to develop an intuition about parameter inference.
+
+We use [**ParametricModels.jl**](https://github.com/vboussange/ParametricModels.jl) to define our model. **ParametricModels.jl** is a simple wrapper around **OrdinaryDiffEq.jl**, that allows to play around with the model without bothering further about the details of the numerical solve. This makes it easier to simulate repeatedly an ODE model. For readability and maintenance, we'll encapsulate the parameters in a `NamedTuple`.
 
 ```julia
 # Declaration of the model
@@ -95,7 +98,7 @@ PyPlot.plot(sol')
 display(fig)
 ```
 
-We now use `sol` to generate synthetic data containing some noise (in mathematical terms, we call this a Gaussian white noise, which follows $\mathcal{N}(0,\sigma)$ where $\sigma = 0.8$. We'll pretend that this synthetic data is our empirical data.
+We now use `sol` to generate synthetic data containing some noise (in mathematical terms, we call this a Gaussian white noise, which follows $\mathcal{N}(0,\sigma)$ where $\sigma = 0.8$.
 ```julia
 σ = 0.8
 odedata = Array(sol) + σ * randn(size(Array(sol)))
@@ -113,12 +116,12 @@ For ABC, one needs to define a function $\rho$ that measures the distance betwee
 ![source: Wikipedia](https://upload.wikimedia.org/wikipedia/commons/b/b9/Approximate_Bayesian_computation_conceptual_overview.svg)
 
 In our case, the empirical data available (`odedata`) allows us to explicitly define the likelihood of the model given the data. As a distance function, we therefore can first use the negative log of the likelihood. For additive Gaussian noise, the likelihood of the model is given by
-$$
-\begin{split}
-    p(\textbf{y}_{1:K} | \theta, \mathcal{M}) &= \prod_{i=1}^K p(y_{i} | \theta, \mathcal{M})\\
+
+$$\begin{split}
+    p(y_{1:K} | \theta, \mathcal{M}) &= \prod_{i=1}^K p(y_{i} | \theta, \mathcal{M})\\
                         &= \prod_{k=1}^K \frac{1}{\sqrt{(2\pi)^d|\Sigma_y|}} \exp \left(-\frac{1}{2} \epsilon_k^{T} \Sigma_y^{-1} \epsilon_k \right)
-\end{split}
-$$
+\end{split}$$
+
 where $\epsilon_k \equiv \epsilon(t_k) = y(t_k) - h\left(\mathcal{M}(t_k, \theta)\right)$ and $\Sigma_y = \sigma^2 I$ in our case. 
 
 So let's translate all this in Julia code. 
