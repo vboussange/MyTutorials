@@ -95,7 +95,7 @@ PyPlot.plot(sol')
 display(fig)
 ```
 
-We now use `sol` to generate synthetic data containing some noise (in mathematical terms, we call this a Gaussian white noise, which follows $\mathcal{N}(0,\sigma)$ where $\sigma = 0.8$. We'll pretend that this synthetic data is our empirical data.
+We now use `sol` to generate synthetic data containing some noise (in mathematical terms, we call this a Gaussian white noise, which follows $\mathcal{M}athcal{N}(0,\sigma)$ where $\sigma = 0.8$. We'll pretend that this synthetic data is our empirical data.
 ```julia
 σ = 0.8
 odedata = Array(sol) + σ * randn(size(Array(sol)))
@@ -108,18 +108,18 @@ The model and the synthetic data are ready, let's get started with ABC!
 
 ## Approximate Bayesian computation
 
-For ABC, one needs to define a function $\rho$ that measures the distance between the model output $\hat\mu$ (in the picture below, $\mu_i$) and the empirical data $\mu$.
+For ABC, one needs to define a function $\rho$ that measures the distance between the model output $\hat\mathcal{M}u$ (in the picture below, $\mathcal{M}u_i$) and the empirical data $\mathcal{M}u$.
 
 ![source: Wikipedia](https://upload.wikimedia.org/wikipedia/commons/b/b9/Approximate_Bayesian_computation_conceptual_overview.svg)
 
 In our case, the empirical data available (`odedata`) allows us to explicitly define the likelihood of the model given the data. As a distance function, we therefore can first use the negative log of the likelihood. For additive Gaussian noise, the likelihood of the model is given by
 $$
 \begin{split}
-    p(\by_{1:K} | \theta, \M) &= \prod_{i=1}^K p(y_{i} | \theta, \M)\\
+    p(\textbf{y}_{1:K} | \theta, \mathcal{M}) &= \prod_{i=1}^K p(y_{i} | \theta, \mathcal{M})\\
                         &= \prod_{k=1}^K \frac{1}{\sqrt{(2\pi)^d|\Sigma_y|}} \exp \left(-\frac{1}{2} \epsilon_k^{T} \Sigma_y^{-1} \epsilon_k \right)
 \end{split}
 $$
-where $\epsilon_k \equiv \epsilon(t_k) = y(t_k) - h\left(\M(t_k, \theta)\right)$ and $\Sigma_y = \sigma^2 I$ in our case. 
+where $\epsilon_k \equiv \epsilon(t_k) = y(t_k) - h\left(\mathcal{M}(t_k, \theta)\right)$ and $\Sigma_y = \sigma^2 I$ in our case. 
 
 So let's translate all this in Julia code. 
 
