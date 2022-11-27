@@ -95,7 +95,7 @@ PyPlot.plot(sol')
 display(fig)
 ```
 
-We now use `sol` to generate synthetic data containing some noise (in mathematical terms, we call this a Gaussian white noise, which follows $\mathcal{M}athcal{N}(0,\sigma)$ where $\sigma = 0.8$. We'll pretend that this synthetic data is our empirical data.
+We now use `sol` to generate synthetic data containing some noise (in mathematical terms, we call this a Gaussian white noise, which follows $\mathcal{N}(0,\sigma)$ where $\sigma = 0.8$. We'll pretend that this synthetic data is our empirical data.
 ```julia
 σ = 0.8
 odedata = Array(sol) + σ * randn(size(Array(sol)))
@@ -108,7 +108,7 @@ The model and the synthetic data are ready, let's get started with ABC!
 
 ## Approximate Bayesian computation
 
-For ABC, one needs to define a function $\rho$ that measures the distance between the model output $\hat\mathcal{M}u$ (in the picture below, $\mathcal{M}u_i$) and the empirical data $\mathcal{M}u$.
+For ABC, one needs to define a function $\rho$ that measures the distance between the model output $\hat \mu$ (in the picture below, $\mu_i$) and the empirical data $\mu$.
 
 ![source: Wikipedia](https://upload.wikimedia.org/wikipedia/commons/b/b9/Approximate_Bayesian_computation_conceptual_overview.svg)
 
@@ -277,7 +277,7 @@ And that's it for today! Hopefully this tutorial has given you some basics and i
 
 ## Appendix
 You can find the corresponding tutorial as a `.jmd` file at [https://github.com/vboussange/MyTutorials](https://github.com/vboussange/MyTutorials). To use `ParametricModels.jl`, follow the procedure indicated on the [github repo](https://github.com/vboussange/ParametricModels.jl).
-Please contact me, if you have found a mistake, of have any comment or suggestion on how to improve this tutorial.
+Please contact me, if you have found a mistake, or if you have any comment or suggestion on how to improve this tutorial.
 
 ### Summary statistics with Fourier transforms
 ```julia
