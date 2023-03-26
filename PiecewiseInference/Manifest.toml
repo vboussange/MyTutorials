@@ -2,7 +2,7 @@
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "33b5fd5ac08c762a14fd410ec6ec05e74dbec27a"
+project_hash = "595ffc2dc9666d47123a9556601f9fa15b686aae"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -150,9 +150,9 @@ version = "0.2.3+2"
 
 [[deps.CUDNN_jll]]
 deps = ["Artifacts", "CUDA_Runtime_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg", "TOML"]
-git-tree-sha1 = "57011df4fce448828165e566af9befa2ea94350a"
+git-tree-sha1 = "aafe89dfde54011993c4029d3be3e037fd63db07"
 uuid = "62b44479-cb7b-5706-934f-f13b2eb2e645"
-version = "8.6.0+3"
+version = "8.6.0+5"
 
 [[deps.Calculus]]
 deps = ["LinearAlgebra"]
