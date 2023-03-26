@@ -9,11 +9,15 @@ subtitle: ""
 authors: []
 tags: []
 categories: []
-# date: `j import Dates; Dates.Date(Dates.now())`
-# lastmod: `j import Dates; Dates.Date(Dates.now())`
+date: `j import Dates; Dates.Date(Dates.now())`
+lastmod: `j import Dates; Dates.Date(Dates.now())`
 featured: false
 draft: false
 ---
+```julia, echo=false
+cd(@__DIR__)
+using Pkg; Pkg.activate(".")
+```
 
 # Inverse ecosystem modeling made easy with PiecewiseInference.jl 
 
@@ -90,7 +94,7 @@ graph with
 
 
 ```julia
-using PythonCall, PythonPlot
+using PythonCall
 nx = pyimport("networkx")
 np = pyimport("numpy")
 species_colors = ["tab:red", "tab:green", "tab:blue"]
@@ -275,7 +279,7 @@ We then define the `InferenceProblem`, which contains the forward
 model, the initial parameter values, and the loss function.
 
 ```julia
-infprob = InferenceProblem(model, p_init; loss_likelihood)
+infprob = InferenceProblem(model, p_init; loss_likelihood);
 ```
 
 It is also handy to use a callback function, that will be called after each iteration of the optimization routine, for visualizing the progress of the inference. Here, we use it to track the loss value and plot the data against the model predictions.
@@ -296,10 +300,6 @@ To use `piecewise_MLE`, the main function of PiecewiseInference  to estimate the
 - `group_size`: the number of data points that define an interval, or segment. This number is usually small, but should be decided upon the dynamics of the model: to more nonlinear is the model, the lower `group_size` should be. We set it here to `11`
 - `batch_size`: the number of intervals, or segments, to consider on a single epoch. The higher the `batch_size`, the more computationally expensive a single iteration of `piecewise_MLE`, but the faster the convergence. Here, we set it to `5`, but could increase it to `10`, which is the total number of segments that we have.
 
-```julia
-
-```
-
 Another critical parameter to be decided upon is the automatic differentiation backend used to differentiate the ODE model. Two are supported, `Optimization.AutoForwardDiff()` and `Optimization.Autozygote()`. Simply put, `Optimization.AutoForwardDiff()` is used for forward mode sensitivity analysis, while `Optimization.Autozygote()` is used for backward mode sensitivity analysis. For more information on those, please refer to the documentation of [`Optimization.jl`](https://docs.sciml.ai/Optimization/stable/).
 
 Other parameters required by `piecewise_MLE` are
@@ -317,7 +317,7 @@ Other parameters required by `piecewise_MLE` are
 @time res = piecewise_MLE(infprob;
                         adtype = Optimization.AutoZygote(),
                         group_size = 11,
-                        batchsizes = [10],
+                        batchsizes = [5],
                         data = data,
                         tsteps = tsteps,
                         optimizers = [Adam(1e-2)],
@@ -351,10 +351,14 @@ You can try to change e.g. the `batch_sizes` and the `group_size`. How do those 
 
 ## Conclusion
 
-In this blog post, we have explored how to perform parameter inference in a dynamical system model using the Julia programming language and the PiecewiseInference.jl package. We have shown how to use the package to set up an inference problem, define a loss function, and optimize the model parameters using a piecewise optimization algorithm. We have also discussed some best practices, such as setting the right learning rate and batch size and monitoring the optimization process.
+In this blog post, we have explored how to perform parameter inference in a dynamical system model using the Julia programming language and the PiecewiseInference.jl package. We have shown how to use the package to set up an inference problem, and train the model parameters. We have also discussed some best practices, such as setting the right learning rate and batch size and monitoring the optimization process.
 
 PiecewiseInference.jl provides an efficient and flexible way to perform inference on complex ecological models, making use of automatic differentiation and parallel computation. By dividing the time series into smaller pieces, PiecewiseInference.jl enables the use of more advanced and computationally intensive inference algorithms that would otherwise be infeasible on larger datasets.
 
-Furthermore, the integration of PiecewiseInference.jl with EcoEvoModelZoo.jl offers a powerful toolkit for ecologists and evolutionary biologists to build, test and refine models that can be fitted to real-world data using state-of-the-art inference techniques. The combination of theoretical modelling and machine learning can provide new insights into complex ecological systems, helping us to better understand and predict the dynamics of biodiversity in a changing world.
+Furthermore, PiecewiseInference.jl together with EcoEvoModelZoo.jl offers a powerful toolkit for ecologists and evolutionary biologists to build, test and refine models that can be fitted to real-world data. The combination of theoretical modelling and machine learning can provide new insights into complex ecological systems, helping us to better understand and predict the dynamics of biodiversity.
 
-We invite users to explore these packages and contribute to their development, by adding new models to the EcoEvoModelZoo.jl and improving the inference methods in PiecewiseInference.jl. With these tools, we can continue to push the boundaries of ecological modelling and make important strides towards a more sustainable and biodiverse future.
+We invite users to explore these packages and contribute to their development, by adding new models to the EcoEvoModelZoo.jl and improve the features of PiecewiseInference.jl. With these tools, we can continue to push the boundaries of ecological modelling and make important strides towards a more sustainable and biodiverse future.
+
+## Appendix
+You can find the corresponding tutorial as a `.jmd` file at [https://github.com/vboussange/MyTutorials](https://github.com/vboussange/MyTutorials). To use `ParametricModels.jl`, follow the procedure indicated on the [github repo](https://github.com/vboussange/ParametricModels.jl).
+Please contact me, if you have found a mistake, or if you have any comment or suggestion on how to improve this tutorial.

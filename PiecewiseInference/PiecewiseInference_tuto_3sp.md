@@ -1,19 +1,16 @@
 ---
-title: Inverse ecosystem modeling made easy with PiecewiseInference.jl 
-summary: This blog post discusses the use of PiecewiseInference.jl, a Julia package that enables the use of machine learning to fit complex ecological models on ecological dataset.
-weave_options:
-    eval: false
+summary: "This blog post discusses the use of PiecewiseInference.jl, a Julia package that enables the use of machine learning to fit complex ecological models on ecological dataset."
 header-includes:
-- \newcommand{\M}{\mathcal{M}}
+  - "\\newcommand{\\M}{\\mathcal{M}}"
 subtitle: ""
-authors: []
+draft: false
+title: "Inverse ecosystem modeling made easy with PiecewiseInference.jl"
 tags: []
 categories: []
-# date: `j import Dates; Dates.Date(Dates.now())`
-# lastmod: `j import Dates; Dates.Date(Dates.now())`
+authors: []
 featured: false
-draft: false
 ---
+
 
 # Inverse ecosystem modeling made easy with PiecewiseInference.jl 
 
@@ -31,6 +28,8 @@ To easily install them on your machine, you'll have to add my personal registry 
 using Pkg; Pkg.Registry.add(RegistrySpec(url = "https://github.com/vboussange/VBoussangeRegistry.git"))
 ```
 
+
+
 Once this is done, let's import those together with other necessary Julia packages for this tutorial.
 
 ```julia
@@ -45,6 +44,9 @@ using SparseArrays
 using ComponentArrays
 using PythonPlot
 ```
+
+
+
 
 
 We use `Graphs` to create a directed graph to represent the food web to be considered The `OrdinaryDiffEq` package provides tools for solving ordinary differential equations, while the `LinearAlgebra` package is used for linear algebraic computations. The `UnPack` package provides a convenient way to extract fields from structures, and the `ComponentArrays` package is used to store and manipulate the model parameters conveniently. Finally, the `PythonCall` package is used to interface with Python's Matplotlib library for visualization.
@@ -67,6 +69,14 @@ tspan = (0.0, 600)
 tsteps = range(300, tspan[end], length=100)
 ```
 
+```
+300.0:3.0303030303030303:600.0
+```
+
+
+
+
+
 ### Defining the foodweb structure
 We'll define a 3-compartment ecosystem as presented in [McCann et al. (1994)](http://doi.wiley.com/10.2307/1939558). We will use `SimpleEcosystemModel` from EcoEvoModeZoo.jl, which requires as input a foodweb structure. Let's use a `DiGraph` to represent it.
 
@@ -77,6 +87,14 @@ foodweb = DiGraph(N)
 add_edge!(foodweb, 2 => 1) # C to R
 add_edge!(foodweb, 3 => 2) # P to C
 ```
+
+```
+true
+```
+
+
+
+
 The `N` variable specifies the number of
 compartments in the model. The `add_edge!` function is used to add edges to the
 graph, specifying the flow of resources between compartments.
@@ -103,6 +121,10 @@ fig, ax = subplots(1)
 nx.draw(g_nx, pos, ax=ax, node_color=species_colors, node_size=1000, labels=labs)
 display(fig)
 ```
+
+![](figures/PiecewiseInference_tuto_3sp_5_1.png)
+
+
 
 ### Defining the ecosystem model
 
@@ -135,6 +157,14 @@ end
 
 resource_conversion_efficiency(p, t) = ones(N)
 ```
+
+```
+resource_conversion_efficiency (generic function with 1 method)
+```
+
+
+
+
 To define the feeding processes, we use `adjacency_matrix` to get the adjacency matrix of the food web. We then use `findnz` from `SparseArrays` to get the row and column indices of the non-zero entries in the adjacency matrix, which we store in `I` and `J`. Those are then used to generate sparse matrices required for defining the functional responses of each species considered. The sparse matrices' non-zero coefficients are the model parameters to be fitted. 
 
 
@@ -143,6 +173,11 @@ using SparseArrays
 W = adjacency_matrix(foodweb)
 I, J, _ = findnz(W)
 ```
+
+```
+([2, 3], [1, 2], [1, 1])
+```
+
 
 
 ```julia
@@ -158,6 +193,14 @@ function feeding(u, p, t)
     return q .* W ./ (one(eltype(u)) .+ q .* H .* (W * u))
 end
 ```
+
+```
+feeding (generic function with 1 method)
+```
+
+
+
+
 
 We are done defining the ecological processes.
 
@@ -197,6 +240,14 @@ model = SimpleEcosystemModel(; mp, intinsic_growth_rate,
     feeding)
 ```
 
+```
+`Model` SimpleEcosystemModel
+```
+
+
+
+
+
 
 
 Let's run the model to generate a dataset! There is nothing more simple than that. Let's also plot it,
@@ -224,6 +275,10 @@ end
 display(plot_time_series(data))
 ```
 
+![](figures/PiecewiseInference_tuto_3sp_10_1.png)
+
+
+
 
 Let's add a bit of noise to the data to simulate experimental errors. We proceed by adding
 log normally distributed noise, so that abundance are always positive (negative abundance would not make sense, but could happen when adding normally distributed noise!).
@@ -234,6 +289,10 @@ data = data .* exp.(0.1 * randn(size(data)))
 
 display(plot_time_series(data))
 ```
+
+![](figures/PiecewiseInference_tuto_3sp_11_1.png)
+
+
 
 ## Inversion with `PiecewiseInference.jl`
 
@@ -255,13 +314,25 @@ using SciMLSensitivity
 ```
 
 
+
+
+
 To initialize the inversion, we set the initial values for the parameters in `p_init` to those of `p_true` but modify the `H₂₁` parameter.
 
 
-```julia 
+```julia
 p_init = p_true
 p_init.H₂₁ .= 2.0 #
 ```
+
+```
+1-element view(::Vector{Float64}, 1:1) with eltype Float64:
+ 2.0
+```
+
+
+
+
 
 Next, we define a loss function `loss_likelihood` that compares the observed data
 with the predicted data. Here, we use a simple mean-squared error loss function while log transforming the abundance, since the noise is log-normally distributed.
@@ -270,13 +341,24 @@ with the predicted data. Here, we use a simple mean-squared error loss function 
 loss_likelihood(data, pred, rg) = sum((log.(data) .- log.(pred)) .^ 2)# loss_fn_lognormal_distrib(data, pred, noise_distrib)
 ```
 
+```
+loss_likelihood (generic function with 1 method)
+```
+
+
+
+
+
 
 We then define the `InferenceProblem`, which contains the forward
 model, the initial parameter values, and the loss function.
 
 ```julia
-infprob = InferenceProblem(model, p_init; loss_likelihood)
+infprob = InferenceProblem(model, p_init; loss_likelihood);
 ```
+
+
+
 
 It is also handy to use a callback function, that will be called after each iteration of the optimization routine, for visualizing the progress of the inference. Here, we use it to track the loss value and plot the data against the model predictions.
 
@@ -290,15 +372,19 @@ function callback(p_trained, losses, pred, ranges)
 end
 ```
 
+```
+callback (generic function with 1 method)
+```
+
+
+
+
+
 ### `piecewise_MLE` hyperparameters
 To use `piecewise_MLE`, the main function of PiecewiseInference  to estimate the parameters that fit the observed data, we need to decide on two critical hyperparameters
 
 - `group_size`: the number of data points that define an interval, or segment. This number is usually small, but should be decided upon the dynamics of the model: to more nonlinear is the model, the lower `group_size` should be. We set it here to `11`
 - `batch_size`: the number of intervals, or segments, to consider on a single epoch. The higher the `batch_size`, the more computationally expensive a single iteration of `piecewise_MLE`, but the faster the convergence. Here, we set it to `5`, but could increase it to `10`, which is the total number of segments that we have.
-
-```julia
-
-```
 
 Another critical parameter to be decided upon is the automatic differentiation backend used to differentiate the ODE model. Two are supported, `Optimization.AutoForwardDiff()` and `Optimization.Autozygote()`. Simply put, `Optimization.AutoForwardDiff()` is used for forward mode sensitivity analysis, while `Optimization.Autozygote()` is used for backward mode sensitivity analysis. For more information on those, please refer to the documentation of [`Optimization.jl`](https://docs.sciml.ai/Optimization/stable/).
 
@@ -317,7 +403,7 @@ Other parameters required by `piecewise_MLE` are
 @time res = piecewise_MLE(infprob;
                         adtype = Optimization.AutoZygote(),
                         group_size = 11,
-                        batchsizes = [10],
+                        batchsizes = [5],
                         data = data,
                         tsteps = tsteps,
                         optimizers = [Adam(1e-2)],
@@ -327,6 +413,37 @@ Other parameters required by `piecewise_MLE` are
                         multi_threading = false,
                         cb = callback)
 ```
+
+```
+piecewise_MLE with 100 points and 10 groups.
+Current loss after 50 iterations: 21.852684684598582
+Current loss after 100 iterations: 15.727295192332942
+Current loss after 150 iterations: 8.676010039155846
+Current loss after 200 iterations: 8.205962787666875
+Current loss after 250 iterations: 7.133003559341531
+Current loss after 300 iterations: 3.378397947752088
+Current loss after 350 iterations: 3.477058570703886
+Current loss after 400 iterations: 3.190016028732692
+Current loss after 450 iterations: 1.9740933458348262
+Current loss after 500 iterations: 2.369183913893409
+157.931369 seconds (1.72 G allocations: 156.407 GiB, 10.00% gc time, 31.32%
+ compilation time: 1% of which was recompilation)
+`InferenceResult` with model SimpleEcosystemModel
+```
+
+
+![](figures/PiecewiseInference_tuto_3sp_17_1.png)
+![](figures/PiecewiseInference_tuto_3sp_17_2.png)
+![](figures/PiecewiseInference_tuto_3sp_17_3.png)
+![](figures/PiecewiseInference_tuto_3sp_17_4.png)
+![](figures/PiecewiseInference_tuto_3sp_17_5.png)
+![](figures/PiecewiseInference_tuto_3sp_17_6.png)
+![](figures/PiecewiseInference_tuto_3sp_17_7.png)
+![](figures/PiecewiseInference_tuto_3sp_17_8.png)
+![](figures/PiecewiseInference_tuto_3sp_17_9.png)
+![](figures/PiecewiseInference_tuto_3sp_17_10.png)
+
+
 
 Finally, we can examine the results of the inversion. We can look at the final parameters, and the initial conditions inferred for each segement:
 
@@ -346,15 +463,75 @@ end
 print_param_values(p_trained, p_true)
 ```
 
-## Playing along with the code
+```
+H₂₁
+trained value = 
+1-element Vector{Float64}:
+ 1.4385690021762123
+true value =
+1-element Vector{Float64}:
+ 2.0
+H₃₂
+trained value = 
+1-element Vector{Float64}:
+ 1.8466781587705268
+true value =
+1-element Vector{Float64}:
+ 2.5
+q₂₁
+trained value = 
+1-element Vector{Float64}:
+ 4.444075859015087
+true value =
+1-element Vector{Float64}:
+ 4.98
+q₃₂
+trained value = 
+1-element Vector{Float64}:
+ 0.7289303225384671
+true value =
+1-element Vector{Float64}:
+ 0.8
+r
+trained value = 
+3-element Vector{Float64}:
+  0.8700090321829468
+ -0.31004396191006184
+ -0.08207579090947571
+true value =
+3-element Vector{Float64}:
+  1.0
+ -0.4
+ -0.08
+K₁₁
+trained value = 
+1-element Vector{Float64}:
+ 1.0573000934780772
+true value =
+1-element Vector{Float64}:
+ 1.0
+A₁₁
+trained value = 
+1-element Vector{Float64}:
+ 0.961694013235985
+true value =
+1-element Vector{Float64}:
+ 1.0
+```
+
+
+
+
+
+### Your turn to play!
 You can try to change e.g. the `batch_sizes` and the `group_size`. How do those parameters influence the quality of the inversion?
 
 ## Conclusion
 
-In this blog post, we have explored how to perform parameter inference in a dynamical system model using the Julia programming language and the PiecewiseInference.jl package. We have shown how to use the package to set up an inference problem, define a loss function, and optimize the model parameters using a piecewise optimization algorithm. We have also discussed some best practices, such as setting the right learning rate and batch size and monitoring the optimization process.
+In this blog post, we have explored how to perform parameter inference in a dynamical system model using the Julia programming language and the PiecewiseInference.jl package. We have shown how to use the package to set up an inference problem, and train the model parameters. We have also discussed some best practices, such as setting the right learning rate and batch size and monitoring the optimization process.
 
 PiecewiseInference.jl provides an efficient and flexible way to perform inference on complex ecological models, making use of automatic differentiation and parallel computation. By dividing the time series into smaller pieces, PiecewiseInference.jl enables the use of more advanced and computationally intensive inference algorithms that would otherwise be infeasible on larger datasets.
 
-Furthermore, the integration of PiecewiseInference.jl with EcoEvoModelZoo.jl offers a powerful toolkit for ecologists and evolutionary biologists to build, test and refine models that can be fitted to real-world data using state-of-the-art inference techniques. The combination of theoretical modelling and machine learning can provide new insights into complex ecological systems, helping us to better understand and predict the dynamics of biodiversity in a changing world.
+Furthermore, PiecewiseInference.jl together with EcoEvoModelZoo.jl offers a powerful toolkit for ecologists and evolutionary biologists to build, test and refine models that can be fitted to real-world data. The combination of theoretical modelling and machine learning can provide new insights into complex ecological systems, helping us to better understand and predict the dynamics of biodiversity.
 
-We invite users to explore these packages and contribute to their development, by adding new models to the EcoEvoModelZoo.jl and improving the inference methods in PiecewiseInference.jl. With these tools, we can continue to push the boundaries of ecological modelling and make important strides towards a more sustainable and biodiverse future.
+We invite users to explore these packages and contribute to their development, by adding new models to the EcoEvoModelZoo.jl and improve the features of PiecewiseInference.jl. With these tools, we can continue to push the boundaries of ecological modelling and make important strides towards a more sustainable and biodiverse future.
