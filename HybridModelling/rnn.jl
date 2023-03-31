@@ -3,8 +3,6 @@ using Random
 using Statistics
 using JLD2
 
-@load "data.jld2" data
- 
 # Hyperparameters and configuration of AR process
 @Base.kwdef mutable struct ArgsEco
     seed::Int            = 72                  # Random seed
@@ -81,7 +79,7 @@ function train_model!(model, data, args)
 end
 
 import ParametricModels.simulate
-function simulate(rnn_model::Chain, init_states, water_availability_range)
+function simulate(rnn_model::Flux.Chain, init_states, water_availability_range)
     # concat u0 and w0 for warmup and initial state
     u0w0 = vcat(init_states,reshape(water_availability_range[1:2], 1, 2))
     
