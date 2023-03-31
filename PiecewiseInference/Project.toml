@@ -1,6 +1,9 @@
 [deps]
+Bijectors = "76274a88-744f-5084-9051-94815aaf08c4"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 Compose = "a81c6b42-2e10-5240-aca2-a61377ecd94b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 EcoEvoModelZoo = "96372a6d-8f12-4b28-95ba-ac697ae6fb10"
 GraphPlot = "a2cc645c-3eea-5389-862e-a155d0052231"
